@@ -1,0 +1,39 @@
+name: Top languages
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/scripts/top_langs.py
+      - .github/workflows/top-langs.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: top-langs
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SVG
+        run: python3 .github/scripts/top_langs.py
+        env:
+          GH_TOKEN: ${{ secrets.LANGS_TOKEN }}
+          LANGS_COUNT: "8"
+          EXCLUDE_LANGS: "" # e.g. "HTML,CSS,Mako"
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add generated/top-langs.svg
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
+          git commit -m "Update top languages"
+          git push
