@@ -12,13 +12,15 @@ TOKEN = os.environ["GH_TOKEN"]
 COUNT = int(os.environ.get("LANGS_COUNT", "8"))
 EXCLUDE = {s.strip().lower() for s in os.environ.get("EXCLUDE_LANGS", "").split(",") if s.strip()}
 OUTPUT = os.environ.get("OUTPUT", "generated/top-langs.svg")
+# Fail instead of publishing public-only numbers if the token loses private access.
+REQUIRE_PRIVATE = os.environ.get("REQUIRE_PRIVATE", "").lower() == "true"
 
 QUERY = """
 query($cursor: String) {
   viewer {
     repositories(first: 100, after: $cursor, ownerAffiliations: OWNER, isFork: false) {
       pageInfo { hasNextPage endCursor }
-      nodes { languages(first: 100) { edges { size node { name color } } } }
+      nodes { isPrivate languages(first: 100) { edges { size node { name color } } } }
     }
   }
 }"""
@@ -38,11 +40,12 @@ def graphql(variables):
 
 
 def collect():
-    sizes, colors, cursor, repos = {}, {}, None, 0
+    sizes, colors, cursor, repos, private = {}, {}, None, 0, 0
     while True:
         page = graphql({"cursor": cursor})
         for repo in page["nodes"]:
             repos += 1
+            private += repo["isPrivate"]
             for edge in repo["languages"]["edges"]:
                 name = edge["node"]["name"]
                 if name.lower() in EXCLUDE:
@@ -52,7 +55,9 @@ def collect():
         if not page["pageInfo"]["hasNextPage"]:
             break
         cursor = page["pageInfo"]["endCursor"]
-    print(f"Scanned {repos} repos, {len(sizes)} languages")
+    print(f"Scanned {repos} repos ({private} private), {len(sizes)} languages")
+    if REQUIRE_PRIVATE and not private:
+        raise SystemExit("Token sees no private repos. Check LANGS_TOKEN has 'All repositories' access.")
     return sizes, colors
 
 

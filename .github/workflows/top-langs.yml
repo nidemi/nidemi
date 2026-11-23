@@ -28,6 +28,7 @@ jobs:
           GH_TOKEN: ${{ secrets.LANGS_TOKEN }}
           LANGS_COUNT: "8"
           EXCLUDE_LANGS: "" # e.g. "HTML,CSS,Mako"
+          REQUIRE_PRIVATE: "true"
 
       - name: Commit if changed
         run: |
